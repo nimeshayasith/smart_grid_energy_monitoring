@@ -47,7 +47,7 @@ main{padding:1.25rem 2rem;display:flex;flex-direction:column;gap:1.25rem}
 .zone.ok .zone-bar{background:#4ade80}.zone.warn .zone-bar{background:#fbbf24}.zone.crit .zone-bar{background:#f87171}
 .zone-meta{font-size:.7rem;color:#6b7280;display:flex;justify-content:space-between}
 /* ── Chart ── */
-.chart-wrap{position:relative;height:220px;overflow:hidden}
+.chart-wrap{position:relative;height:240px;overflow:hidden}
 /* ── Tables ── */
 table{width:100%;border-collapse:collapse;font-size:.8rem}
 thead th{color:#6b7280;font-weight:600;padding:.5rem .6rem;border-bottom:1px solid #1f2937;text-align:left;white-space:nowrap}
@@ -198,6 +198,7 @@ const trendChart = new Chart(ctx,{
     tension:.35,fill:true,pointRadius:2,borderWidth:2
   }))},
   options:{responsive:true,maintainAspectRatio:false,animation:false,
+    layout:{padding:{top:20,right:10}},
     scales:{
       y:{min:0,max:105,ticks:{color:'#6b7280',stepSize:20,callback:v=>v<=100?v+'%':''},grid:{color:'#1f2937'},
          title:{display:true,text:'Renewable %',color:'#6b7280'}},
