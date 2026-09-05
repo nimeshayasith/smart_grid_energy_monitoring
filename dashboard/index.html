@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>GridPulse – Smart Grid Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0f1e;color:#e2e8f0;min-height:100vh}
+/* ── Header ── */
+header{background:#111827;padding:.9rem 2rem;display:flex;align-items:center;gap:1rem;border-bottom:1px solid #1f2937;position:sticky;top:0;z-index:100}
+header h1{font-size:1.4rem;font-weight:700;color:#38bdf8;letter-spacing:-.5px}
+header .sub{color:#6b7280;font-size:.8rem}
+.live-pill{margin-left:auto;display:flex;align-items:center;gap:.4rem;background:#052e16;border:1px solid #166534;border-radius:9999px;padding:.3rem .8rem;font-size:.75rem;color:#4ade80}
+.dot{width:7px;height:7px;border-radius:50%;background:#4ade80;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.refresh-badge{margin-left:1rem;color:#6b7280;font-size:.75rem}
+/* ── Layout ── */
+main{padding:1.25rem 2rem;display:flex;flex-direction:column;gap:1.25rem}
+/* ── KPI strip ── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+.kpi{background:#111827;border:1px solid #1f2937;border-radius:.75rem;padding:1rem 1.25rem;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:.75rem .75rem 0 0}
+.kpi.blue::before{background:#38bdf8}.kpi.green::before{background:#4ade80}
+.kpi.amber::before{background:#fbbf24}.kpi.purple::before{background:#a78bfa}
+.kpi-label{font-size:.7rem;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.4rem}
+.kpi-value{font-size:1.9rem;font-weight:700;line-height:1}
+.kpi-sub{font-size:.72rem;color:#6b7280;margin-top:.35rem}
+.kpi.blue .kpi-value{color:#38bdf8}.kpi.green .kpi-value{color:#4ade80}
+.kpi.amber .kpi-value{color:#fbbf24}.kpi.purple .kpi-value{color:#a78bfa}
+/* ── Cards ── */
+.card{background:#111827;border:1px solid #1f2937;border-radius:.75rem;padding:1.25rem}
+.card-title{font-size:.75rem;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+.row3{display:grid;grid-template-columns:2fr 1fr;gap:1.25rem}
+/* ── Zone cards ── */
+.zone-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+.zone{background:#0d1117;border-radius:.6rem;padding:1rem;border-left:4px solid #374151;transition:border-color .3s}
+.zone.ok{border-left-color:#4ade80}.zone.warn{border-left-color:#fbbf24}.zone.crit{border-left-color:#f87171}
+.zone-name{font-size:.7rem;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.zone-pct{font-size:2.2rem;font-weight:800;margin:.2rem 0;line-height:1}
+.zone.ok .zone-pct{color:#4ade80}.zone.warn .zone-pct{color:#fbbf24}.zone.crit .zone-pct{color:#f87171}
+.zone-bar-wrap{background:#1f2937;border-radius:9999px;height:5px;margin:.5rem 0}
+.zone-bar{height:5px;border-radius:9999px;transition:width .5s}
+.zone.ok .zone-bar{background:#4ade80}.zone.warn .zone-bar{background:#fbbf24}.zone.crit .zone-bar{background:#f87171}
+.zone-meta{font-size:.7rem;color:#6b7280;display:flex;justify-content:space-between}
+/* ── Chart ── */
+.chart-wrap{position:relative;height:220px}
+/* ── Tables ── */
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+thead th{color:#6b7280;font-weight:600;padding:.5rem .6rem;border-bottom:1px solid #1f2937;text-align:left;white-space:nowrap}
+tbody tr{border-bottom:1px solid #0d1117;transition:background .15s}
+tbody tr:hover{background:#1f2937}
+tbody td{padding:.45rem .6rem;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;padding:.15rem .5rem;border-radius:9999px;font-size:.68rem;font-weight:700}
+.badge.warn{background:#451a03;color:#fbbf24;border:1px solid #78350f}
+.badge.crit{background:#450a0a;color:#f87171;border:1px solid #7f1d1d}
+.badge.ok{background:#052e16;color:#4ade80;border:1px solid #166534}
+.badge.res{background:#1e1b4b;color:#a78bfa;border:1px solid #4c1d95}
+.badge.com{background:#082f49;color:#38bdf8;border:1px solid #075985}
+.tag-sub{background:#052e16;color:#4ade80;border-radius:4px;padding:.1rem .35rem;font-size:.65rem;font-weight:700}
+.empty{color:#4b5563;text-align:center;padding:2rem;font-size:.8rem}
+/* ── Billing lookup ── */
+.lookup-row{display:flex;gap:.5rem;margin-bottom:1rem}
+.lookup-row input{flex:1;background:#0d1117;border:1px solid #374151;border-radius:.4rem;color:#e2e8f0;padding:.5rem .75rem;font-size:.85rem;outline:none;transition:border-color .2s}
+.lookup-row input:focus{border-color:#38bdf8}
+.lookup-row button{background:#0ea5e9;color:#fff;border:none;border-radius:.4rem;padding:.5rem 1rem;cursor:pointer;font-size:.82rem;font-weight:600;transition:background .2s}
+.lookup-row button:hover{background:#0284c7}
+.bill-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem .8rem}
+.bill-row{display:flex;justify-content:space-between;align-items:center;padding:.35rem 0;border-bottom:1px solid #1f2937;font-size:.82rem}
+.bill-label{color:#9ca3af}.bill-val{font-weight:600}
+.bill-total{font-size:1.4rem;font-weight:800;color:#38bdf8;text-align:center;margin-top:.75rem;padding-top:.75rem;border-top:1px solid #1f2937}
+/* ── Scrollable table ── */
+.tbl-scroll{max-height:280px;overflow-y:auto}
+.tbl-scroll::-webkit-scrollbar{width:4px}
+.tbl-scroll::-webkit-scrollbar-thumb{background:#374151;border-radius:4px}
+/* ── Sparkline text ── */
+.trend-up{color:#4ade80}.trend-dn{color:#f87171}.trend-flat{color:#9ca3af}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>⚡ GridPulse</h1>
+    <div class="sub">EC8203 · Smart Grid Energy Monitoring &amp; Billing · Kappa Architecture</div>
+  </div>
+  <div class="live-pill"><div class="dot"></div>LIVE</div>
+  <div class="refresh-badge" id="refresh-cd">refreshing…</div>
+</header>
+
+<main>
+
+  <!-- KPI strip -->
+  <div class="kpi-row">
+    <div class="kpi blue">
+      <div class="kpi-label">Avg Renewable Mix</div>
+      <div class="kpi-value" id="kpi-renew">—</div>
+      <div class="kpi-sub">across all zones · latest window</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Total Consumption</div>
+      <div class="kpi-value" id="kpi-cons">—</div>
+      <div class="kpi-sub">kWh · latest 1-min window</div>
+    </div>
+    <div class="kpi amber">
+      <div class="kpi-label">Active Alerts</div>
+      <div class="kpi-value" id="kpi-alerts">—</div>
+      <div class="kpi-sub">renewable shortfall warnings</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-label">Today's Revenue</div>
+      <div class="kpi-value" id="kpi-revenue">—</div>
+      <div class="kpi-sub">USD · all 30 households</div>
+    </div>
+  </div>
+
+  <!-- Zone status -->
+  <div class="card">
+    <div class="card-title">📡 Live Zone Status <span style="margin-left:auto;font-size:.7rem" id="zone-ts"></span></div>
+    <div class="zone-grid" id="zone-grid"><div class="empty">Connecting…</div></div>
+  </div>
+
+  <!-- Chart + Alerts -->
+  <div class="row2">
+    <div class="card">
+      <div class="card-title">📈 Renewable % Trend — last 20 windows (1-min each)</div>
+      <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🚨 Active Alerts</div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Zone</th><th>Renewable%</th><th>Threshold</th><th>Severity</th><th>Time</th></tr></thead>
+          <tbody id="alerts-body"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Billing report -->
+  <div class="card">
+    <div class="card-title">🧾 Daily Consolidated Billing &amp; Solar-Contribution Report — All Households <span style="margin-left:auto;font-size:.7rem" id="bill-ts"></span></div>
+    <div class="tbl-scroll">
+      <table id="billing-table">
+        <thead><tr>
+          <th>Household</th><th>Billing Date</th>
+          <th>Consumption (kWh)</th><th>Solar Gen (kWh)</th><th>Solar %</th>
+          <th>Tariff ($/kWh)</th><th>Tier</th><th>Subsidy</th><th>Bill ($)</th>
+        </tr></thead>
+        <tbody id="billing-body"><tr><td colspan="9" class="empty">Loading billing report…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Lookup + Pipeline stats -->
+  <div class="row3">
+    <div class="card">
+      <div class="card-title">🔍 Household Billing Lookup</div>
+      <div class="lookup-row">
+        <input type="text" id="hid-input" placeholder="Enter Household ID e.g. H001, H015, H030…"/>
+        <button onclick="lookupBilling()">Fetch</button>
+      </div>
+      <div id="lookup-result" class="empty">Enter a household ID above.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">🔧 Pipeline Stats</div>
+      <div id="pipeline-stats" style="font-size:.82rem">
+        <div class="bill-row"><span class="bill-label">Kafka topics</span><span class="bill-val">meter-readings · tariff-updates · alerts</span></div>
+        <div class="bill-row"><span class="bill-label">Partitions (meter-readings)</span><span class="bill-val">3 (keyed by grid_zone)</span></div>
+        <div class="bill-row"><span class="bill-label">tariff-updates policy</span><span class="bill-val">log-compacted</span></div>
+        <div class="bill-row"><span class="bill-label">Spark window (zone)</span><span class="bill-val">1 minute tumbling</span></div>
+        <div class="bill-row"><span class="bill-label">Spark window (billing)</span><span class="bill-val">5 minutes = 1 sim-day</span></div>
+        <div class="bill-row"><span class="bill-label">Simulated clock</span><span class="bill-val">5 real min = 1 day</span></div>
+        <div class="bill-row"><span class="bill-label">Alert threshold</span><span class="bill-val">Renewable &lt; 20%</span></div>
+        <div class="bill-row"><span class="bill-label">Architecture</span><span class="bill-val">Kappa (single streaming path)</span></div>
+        <div class="bill-row"><span class="bill-label">Zone load rows</span><span class="bill-val" id="stat-zone-rows">—</span></div>
+        <div class="bill-row"><span class="bill-label">Billing rows</span><span class="bill-val" id="stat-bill-rows">—</span></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const API = `http://${location.hostname}:8000`;
+const ZONES = ['ZONE_A','ZONE_B','ZONE_C'];
+const COLORS = ['#38bdf8','#a78bfa','#4ade80'];
+let countdown = 5;
+
+/* ── Chart ── */
+const ctx = document.getElementById('trend-chart').getContext('2d');
+const trendChart = new Chart(ctx,{
+  type:'line',
+  data:{labels:[],datasets:ZONES.map((z,i)=>({
+    label:z,data:[],borderColor:COLORS[i],backgroundColor:COLORS[i]+'18',
+    tension:.35,fill:true,pointRadius:2,borderWidth:2
+  }))},
+  options:{responsive:true,maintainAspectRatio:false,animation:false,
+    scales:{
+      y:{min:0,max:110,ticks:{color:'#6b7280',callback:v=>v+'%'},grid:{color:'#1f2937'},
+         title:{display:true,text:'Renewable %',color:'#6b7280'}},
+      x:{ticks:{color:'#6b7280',maxTicksLimit:6},grid:{color:'#1f2937'}}
+    },
+    plugins:{legend:{labels:{color:'#9ca3af',boxWidth:12}}}}
+});
+
+/* ── Helpers ── */
+const fmt=ts=>new Date(ts).toLocaleTimeString();
+const r2=n=>+n.toFixed(2);
+const r4=n=>+n.toFixed(4);
+function zoneClass(pct){return pct>=40?'ok':pct>=20?'warn':'crit'}
+
+/* ── KPI update ── */
+async function refreshKPIs(zoneData, alertCount){
+  if(zoneData.length){
+    const avgRenew = zoneData.reduce((s,z)=>s+z.renewable_pct,0)/zoneData.length;
+    const totalCons = zoneData.reduce((s,z)=>s+z.total_consumption_kwh,0);
+    document.getElementById('kpi-renew').textContent = avgRenew.toFixed(1)+'%';
+    document.getElementById('kpi-cons').textContent = totalCons.toFixed(1);
+  }
+  document.getElementById('kpi-alerts').textContent = alertCount;
+  try{
+    const bills = await fetch(`${API}/billing`).then(r=>r.json());
+    const rev = bills.reduce((s,b)=>s+b.bill_amount,0);
+    document.getElementById('kpi-revenue').textContent = '$'+rev.toFixed(2);
+  }catch{}
+}
+
+/* ── Zone load ── */
+async function refreshZones(){
+  try{
+    const data = await fetch(`${API}/grid-load`).then(r=>r.json());
+    if(!data.length)return;
+    const grid=document.getElementById('zone-grid');
+    grid.innerHTML=data.map(z=>{
+      const cls=zoneClass(z.renewable_pct);
+      const barW=Math.min(100,z.renewable_pct).toFixed(0);
+      return `<div class="zone ${cls}">
+        <div class="zone-name">${z.grid_zone.replace('_',' ')}</div>
+        <div class="zone-pct">${z.renewable_pct.toFixed(1)}%</div>
+        <div class="zone-bar-wrap"><div class="zone-bar" style="width:${barW}%"></div></div>
+        <div class="zone-meta">
+          <span>☀️ ${z.total_solar_kwh.toFixed(2)} kWh</span>
+          <span>⚡ ${z.total_consumption_kwh.toFixed(2)} kWh</span>
+          <span>${z.reading_count} readings</span>
+        </div>
+        <div style="font-size:.68rem;color:#4b5563;margin-top:.3rem">${fmt(z.window_start)}</div>
+      </div>`;
+    }).join('');
+    document.getElementById('zone-ts').textContent='· updated '+new Date().toLocaleTimeString();
+    return data;
+  }catch{return []}
+}
+
+/* ── Trend chart ── */
+async function refreshTrend(){
+  const zoneData={};
+  for(const [i,zone] of ZONES.entries()){
+    try{
+      const d=await fetch(`${API}/grid-load/history/${zone}?limit=20`).then(r=>r.json());
+      zoneData[zone]=d.reverse();
+    }catch{}
+  }
+  const first=Object.values(zoneData)[0];
+  if(!first||!first.length)return;
+  trendChart.data.labels=first.map(r=>fmt(r.window_start));
+  ZONES.forEach((z,i)=>{
+    trendChart.data.datasets[i].data=(zoneData[z]||[]).map(r=>+r.renewable_pct.toFixed(1));
+  });
+  trendChart.update('none');
+}
+
+/* ── Alerts ── */
+async function refreshAlerts(){
+  try{
+    const data=await fetch(`${API}/alerts`).then(r=>r.json());
+    const tbody=document.getElementById('alerts-body');
+    if(!data.length){tbody.innerHTML='<tr><td colspan="5" class="empty">✓ No active alerts</td></tr>';return 0;}
+    tbody.innerHTML=data.map(a=>`<tr>
+      <td><strong>${a.grid_zone}</strong></td>
+      <td style="color:${a.renewable_pct<20?'#f87171':'#fbbf24'}">${a.renewable_pct.toFixed(1)}%</td>
+      <td>${a.threshold}%</td>
+      <td><span class="badge ${a.severity==='WARNING'?'warn':'crit'}">${a.severity}</span></td>
+      <td>${fmt(a.created_at)}</td>
+    </tr>`).join('');
+    return data.length;
+  }catch{return 0}
+}
+
+/* ── Billing table ── */
+async function refreshBillingTable(){
+  try{
+    const data=await fetch(`${API}/billing`).then(r=>r.json());
+    if(!data.length){document.getElementById('billing-body').innerHTML='<tr><td colspan="9" class="empty">No billing data yet</td></tr>';return;}
+    const tbody=document.getElementById('billing-body');
+    tbody.innerHTML=data.map(b=>{
+      const solarPct=b.total_consumption_kwh>0?(b.total_solar_kwh/b.total_consumption_kwh*100).toFixed(1):0;
+      return `<tr>
+        <td><strong>${b.household_id}</strong></td>
+        <td>${b.billing_date}</td>
+        <td>${r2(b.total_consumption_kwh)}</td>
+        <td>${r2(b.total_solar_kwh)}</td>
+        <td style="color:${solarPct>=40?'#4ade80':solarPct>=20?'#fbbf24':'#f87171'}">${solarPct}%</td>
+        <td>${r4(b.tariff_rate)}</td>
+        <td><span class="badge ${b.billing_tier==='RESIDENTIAL'?'res':'com'}">${b.billing_tier.slice(0,3)}</span></td>
+        <td>${b.subsidy_flag?'<span class="tag-sub">YES</span>':'—'}</td>
+        <td><strong>$${r4(b.bill_amount)}</strong></td>
+      </tr>`;
+    }).join('');
+    document.getElementById('bill-ts').textContent='· '+new Date().toLocaleTimeString();
+    document.getElementById('stat-bill-rows').textContent=data.length+' households';
+  }catch{}
+}
+
+/* ── Pipeline stats ── */
+async function refreshStats(){
+  try{
+    const zones=await fetch(`${API}/grid-load/history/ZONE_A?limit=1`).then(r=>r.json());
+    if(zones.length) document.getElementById('stat-zone-rows').textContent='live (last: '+fmt(zones[0].window_start)+')';
+  }catch{}
+}
+
+/* ── Billing lookup ── */
+async function lookupBilling(){
+  const hid=document.getElementById('hid-input').value.trim().toUpperCase();
+  if(!hid)return;
+  const el=document.getElementById('lookup-result');
+  el.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    const b=await fetch(`${API}/billing/${hid}`).then(async r=>{
+      if(r.status===404)throw new Error('not found');
+      return r.json();
+    });
+    const solarPct=b.total_consumption_kwh>0?(b.total_solar_kwh/b.total_consumption_kwh*100).toFixed(1):0;
+    el.innerHTML=`
+      <div class="bill-grid">
+        <div class="bill-row"><span class="bill-label">Household ID</span><span class="bill-val">${b.household_id}</span></div>
+        <div class="bill-row"><span class="bill-label">Billing Date</span><span class="bill-val">${b.billing_date}</span></div>
+        <div class="bill-row"><span class="bill-label">Consumption</span><span class="bill-val">${r2(b.total_consumption_kwh)} kWh</span></div>
+        <div class="bill-row"><span class="bill-label">Solar Generated</span><span class="bill-val">${r2(b.total_solar_kwh)} kWh</span></div>
+        <div class="bill-row"><span class="bill-label">Solar Contribution</span><span class="bill-val" style="color:#4ade80">${solarPct}%</span></div>
+        <div class="bill-row"><span class="bill-label">Tariff Rate</span><span class="bill-val">$${r4(b.tariff_rate)}/kWh</span></div>
+        <div class="bill-row"><span class="bill-label">Billing Tier</span><span class="bill-val"><span class="badge ${b.billing_tier==='RESIDENTIAL'?'res':'com'}">${b.billing_tier}</span></span></div>
+        <div class="bill-row"><span class="bill-label">Subsidy (15% off)</span><span class="bill-val">${b.subsidy_flag?'<span class="tag-sub">Applied</span>':'None'}</span></div>
+        <div class="bill-row"><span class="bill-label">Window</span><span class="bill-val">${fmt(b.window_start)} – ${fmt(b.window_end)}</span></div>
+      </div>
+      <div class="bill-total">Total Bill: $${r4(b.bill_amount)}</div>`;
+  }catch(e){
+    el.innerHTML=`<div class="empty">No billing data found for <strong>${hid}</strong>. Try H001–H030.</div>`;
+  }
+}
+
+document.getElementById('hid-input').addEventListener('keydown',e=>{if(e.key==='Enter')lookupBilling()});
+
+/* ── Countdown badge ── */
+function tickCountdown(){
+  const el=document.getElementById('refresh-cd');
+  el.textContent=`next refresh in ${countdown}s`;
+  countdown--;
+  if(countdown<0)countdown=4;
+}
+
+/* ── Main refresh loop ── */
+async function refresh(){
+  const [zoneData, alertCount]=await Promise.all([
+    refreshZones(), refreshAlerts()
+  ]);
+  await Promise.allSettled([
+    refreshTrend(), refreshBillingTable(), refreshStats(),
+    refreshKPIs(zoneData||[], alertCount||0)
+  ]);
+}
+
+refresh();
+setInterval(refresh,5000);
+setInterval(tickCountdown,1000);
+</script>
+</body>
+</html>
