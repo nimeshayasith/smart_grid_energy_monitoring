@@ -46,7 +46,7 @@ main{padding:1.25rem 2rem;display:flex;flex-direction:column;gap:1.25rem}
 .zone.ok .zone-bar{background:#4ade80}.zone.warn .zone-bar{background:#fbbf24}.zone.crit .zone-bar{background:#f87171}
 .zone-meta{font-size:.7rem;color:#6b7280;display:flex;justify-content:space-between}
 /* ── Chart ── */
-.chart-wrap{position:relative;height:220px}
+.chart-wrap{position:relative;height:220px;overflow:hidden}
 /* ── Tables ── */
 table{width:100%;border-collapse:collapse;font-size:.8rem}
 thead th{color:#6b7280;font-weight:600;padding:.5rem .6rem;border-bottom:1px solid #1f2937;text-align:left;white-space:nowrap}
@@ -198,7 +198,7 @@ const trendChart = new Chart(ctx,{
   }))},
   options:{responsive:true,maintainAspectRatio:false,animation:false,
     scales:{
-      y:{min:0,max:110,ticks:{color:'#6b7280',callback:v=>v+'%'},grid:{color:'#1f2937'},
+      y:{min:0,max:105,ticks:{color:'#6b7280',stepSize:20,callback:v=>v<=100?v+'%':''},grid:{color:'#1f2937'},
          title:{display:true,text:'Renewable %',color:'#6b7280'}},
       x:{ticks:{color:'#6b7280',maxTicksLimit:6},grid:{color:'#1f2937'}}
     },
@@ -214,7 +214,7 @@ function zoneClass(pct){return pct>=40?'ok':pct>=20?'warn':'crit'}
 /* ── KPI update ── */
 async function refreshKPIs(zoneData, alertCount){
   if(zoneData.length){
-    const avgRenew = zoneData.reduce((s,z)=>s+z.renewable_pct,0)/zoneData.length;
+    const avgRenew = zoneData.reduce((s,z)=>s+Math.min(100,z.renewable_pct),0)/zoneData.length;
     const totalCons = zoneData.reduce((s,z)=>s+z.total_consumption_kwh,0);
     document.getElementById('kpi-renew').textContent = avgRenew.toFixed(1)+'%';
     document.getElementById('kpi-cons').textContent = totalCons.toFixed(1);
@@ -236,9 +236,10 @@ async function refreshZones(){
     grid.innerHTML=data.map(z=>{
       const cls=zoneClass(z.renewable_pct);
       const barW=Math.min(100,z.renewable_pct).toFixed(0);
+      const displayPct=Math.min(100,z.renewable_pct).toFixed(1);
       return `<div class="zone ${cls}">
         <div class="zone-name">${z.grid_zone.replace('_',' ')}</div>
-        <div class="zone-pct">${z.renewable_pct.toFixed(1)}%</div>
+        <div class="zone-pct">${displayPct}%</div>
         <div class="zone-bar-wrap"><div class="zone-bar" style="width:${barW}%"></div></div>
         <div class="zone-meta">
           <span>☀️ ${z.total_solar_kwh.toFixed(2)} kWh</span>
@@ -266,7 +267,7 @@ async function refreshTrend(){
   if(!first||!first.length)return;
   trendChart.data.labels=first.map(r=>fmt(r.window_start));
   ZONES.forEach((z,i)=>{
-    trendChart.data.datasets[i].data=(zoneData[z]||[]).map(r=>+r.renewable_pct.toFixed(1));
+    trendChart.data.datasets[i].data=(zoneData[z]||[]).map(r=>+Math.min(100,r.renewable_pct).toFixed(1));
   });
   trendChart.update('none');
 }
